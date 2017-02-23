@@ -255,17 +255,17 @@ func (d Device) supportedBaudRatesForMode(mode int, modulationType int) ([]int, 
 	var br_arr *C.nfc_baud_rate
 	var ret int
 	if mode == InitiatorMode {
-		ret := C.nfc_device_get_supported_baud_rate(
+		ret = int(C.nfc_device_get_supported_baud_rate(
 			*d.d,
 			C.nfc_modulation_type(modulationType),
 			&br_arr,
-		)
+		))
 	} else { // mode == TargetMode
-		ret := C.nfc_device_get_supported_baud_rate_target_mode(
+		ret = int(C.nfc_device_get_supported_baud_rate_target_mode(
 			*d.d,
 			C.nfc_modulation_type(modulationType),
 			&br_arr,
-		)
+		))
 	}
 
 	if ret != 0 {
@@ -288,14 +288,14 @@ func (d Device) supportedBaudRatesForMode(mode int, modulationType int) ([]int, 
 // slice of supported baud rates or an error. This function wraps
 // nfc_device_get_supported_baud_rate().
 func (d Device) SupportedBaudRates(modulationType int) ([]int, error) {
-	return supportedBaudRatesForMode(InitiatorMode, modulationType)
+	return d.supportedBaudRatesForMode(InitiatorMode, modulationType)
 }
 
 // Get the suported baud rates for target mode. Returns either a
 // slice of supported baud rates or an error. This function wraps
 // nfc_device_get_supported_baud_rate_target_mode().
 func (d Device) SupportedBaudRatesTargetMode(modulationType int) ([]int, error) {
-	return supportedBaudRatesForMode(TargetMode, modulationType)
+	return d.supportedBaudRatesForMode(TargetMode, modulationType)
 }
 
 // Initialize NFC device as an emulated tag. n contains the received byte count
@@ -344,6 +344,29 @@ func (d Device) TargetInit(t Target, rx []byte, timeout int) (n int, tt Target, 
 	}
 
 	tt = unmarshallTarget(tar)
+	return
+}
+
+// Polls device until a target is present
+func (d Device) InitiatorPollTarget(modulations []Modulation, pollNr byte, period byte) (res Target, err error) {
+	targetTypes := make([]C.nfc_modulation, len(modulations), len(modulations))
+	for i, m := range (modulations) {
+		targetTypes[i] = C.nfc_modulation{C.nfc_modulation_type(m.Type), C.nfc_baud_rate(m.BaudRate)}
+	}
+	targetPtr := mallocTarget()
+	result := int(C.nfc_initiator_poll_target(
+		*d.d,
+		&targetTypes[0],
+		C.size_t(len(targetTypes)),
+		C.uint8_t(pollNr),
+		C.uint8_t(period),
+		targetPtr,
+	))
+	if (result != 0) {
+		err = Error(result)
+		return
+	}
+	res = unmarshallTarget(targetPtr)
 	return
 }
 
