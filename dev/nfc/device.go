@@ -362,7 +362,7 @@ func (d Device) InitiatorPollTarget(modulations []Modulation, pollNr byte, perio
 		C.uint8_t(period),
 		targetPtr,
 	))
-	if (result != 0) {
+	if (result < 0) {
 		err = Error(result)
 		return
 	}
